@@ -1,0 +1,37 @@
+# macOS
+.DS_Store
+
+# MATLAB / Simulink
+*.asv
+*.m~
+*.autosave
+slprj/
+sccprj/
+*.slxc
+*.mexmaci64
+*.mat.bak
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# Python helper scripts (if any)
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Local working artifacts
+_trash/
+*.bak
+*.tmp
+
+# Local-only Chinese translation aids (author review only, not for public repo)
+*_zh.md
+
+# OS / archive
+Thumbs.db
+*.zip
+*.tar.gz

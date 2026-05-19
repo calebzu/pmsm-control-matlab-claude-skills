@@ -1,0 +1,67 @@
+# PMSM Claude Skills
+
+A methodology and skill library for AI-augmented MATLAB/Simulink modeling of
+**Permanent Magnet Synchronous Motor (PMSM)** control, built for use with
+[Claude Code](https://claude.ai/code).
+
+The repository is itself a Claude Code workspace: clone it, install the
+prerequisites, open Claude Code in the folder, and follow [`CLAUDE.md`](CLAUDE.md).
+
+## Layout
+
+| Path | Contents |
+|------|----------|
+| [`CLAUDE.md`](CLAUDE.md) | Workspace entry point — setup steps and working rules a fresh Claude Code reads on open. |
+| `.claude/skills/` | Four PMSM modeling skills (Claude Code skill format), registered automatically when Claude Code opens this folder. |
+| `workflow/` | The 11-phase [Reference Model Learning Workflow](workflow/reference_model_learning_workflow.md) for distilling a reference model into a Claude Code skill under anti-contamination discipline. |
+| `shared/` | Domain assets the skills reuse: `formulas/` (PMSM plant model + control-law derivations), `building_blocks/` (atomic Simulink blocks + API notes). |
+| `workspace/` | Where you build your own models. |
+
+## Skills
+
+- **`motor-pmsm-base`** — PMSM plant modeling, dq conventions, building-blocks SOP, broken-FOC diagnostics. The method skills layer on this.
+- **`motor-fcs-mpc`** — single-vector Finite-Control-Set Model Predictive Control (inner current loop).
+- **`motor-dtc-pmsm`** — Direct Torque Control (αβ frame, Sutikno 6-state switching table).
+- **`motor-smc-pmsm`** — Sliding Mode Control speed loop (PD-type sliding surface + super-twisting) over a dq PI current loop.
+
+## Prerequisites
+
+- MATLAB R2024b or later, with Simulink, Simscape, Simscape Electrical, Control System Toolbox.
+- [Claude Code](https://claude.ai/code).
+- [matlab-mcp-core-server](https://github.com/matlab/matlab-mcp-core-server) (MathWorks, MIT) — lets Claude Code run MATLAB directly. Install per its README.
+- MathWorks' official MATLAB skills for Claude Code — install per MathWorks' instructions.
+
+## Getting started
+
+1. Clone this repository.
+2. Install the prerequisites above.
+3. Open Claude Code in the repository folder. It loads [`CLAUDE.md`](CLAUDE.md) and registers `.claude/skills/`.
+4. Follow [`CLAUDE.md`](CLAUDE.md) and `workflow/`.
+
+## Attribution and license compatibility
+
+This repository **indexes** — it does not redistribute — the following MathWorks
+open-source references, used by workflow phases that need official ecosystem
+reference models. Clone them separately if needed:
+
+- [mathworks/pmsm-drive-optimization](https://github.com/mathworks/pmsm-drive-optimization) — BSD-3-Clause
+- [mathworks/FOC-of-PMSM](https://github.com/mathworks/FOC-of-PMSM) — BSD-3-Clause
+
+No MathWorks-derived code, model files, or copyrighted material is redistributed
+here. BSD-3-Clause is compatible with Apache-2.0 for downstream use; this
+repository's original content is under [Apache-2.0](LICENSE).
+
+The "skill" format follows the [Claude Code skill specification](https://docs.claude.com/claude-code).
+
+## Citation
+
+See [`CITATION.cff`](CITATION.cff).
+
+## Author
+
+Zong Chuhang — School of Electrical and Electronic Engineering, Nanyang
+Technological University, Singapore. <ZONG0008@e.ntu.edu.sg>
+
+## License
+
+[Apache License 2.0](LICENSE).

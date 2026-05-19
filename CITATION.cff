@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+title: "PMSM Claude Skills: A Methodology and Skill Library for AI-Augmented PMSM Simulink Modeling"
+message: "If you use this software, please cite it using the metadata below."
+type: software
+version: 1.0.0
+date-released: 2026-05-11
+license: Apache-2.0
+repository-code: "https://github.com/calebzu/pmsm-claude-skills"
+authors:
+  - family-names: Zong
+    given-names: Chuhang
+    affiliation: "School of Electrical and Electronic Engineering, Nanyang Technological University"
+    email: ZONG0008@e.ntu.edu.sg
+abstract: >
+  A methodology and skill library for AI-augmented MATLAB/Simulink modeling
+  of Permanent Magnet Synchronous Motor (PMSM) control, designed for use
+  with Anthropic's Claude Code agent system. Includes four skill artifacts
+  (motor-pmsm-base, motor-fcs-mpc, motor-dtc-pmsm, motor-smc-pmsm) validated
+  across three control methodology families (FCS-MPC, DTC, SMC) under
+  anti-contamination and anti-cheating discipline, accompanied by an
+  11-phase Reference Model Learning Workflow.
+keywords:
+  - PMSM
+  - permanent magnet synchronous motor
+  - motor control
+  - field-oriented control
+  - direct torque control
+  - sliding mode control
+  - model predictive control
+  - MATLAB
+  - Simulink
+  - Claude Code
+  - large language model
+  - LLM agent
+  - AI-augmented engineering simulation
+  - methodology
+  - reproducibility
