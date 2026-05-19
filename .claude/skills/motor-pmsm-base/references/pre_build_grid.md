@@ -17,7 +17,7 @@ Run **before** any PMSM control simulation build. Each failure means stop, fix, 
 □ 4 standard Scopes wired (wm_RPM, iq, abc 3-channel, Te 2-channel with TL+B·ω overlay)
 ```
 
-→ The first line of every `build_template.m` should be:
+→ The first line of every build script (`build_template.m` by convention) should be:
 
 ```matlab
 assert(check_pre_build_sanity_grid(p), 'Pre-build sanity grid FAILED — fix issues before continuing.');

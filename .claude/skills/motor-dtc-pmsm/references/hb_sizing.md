@@ -27,7 +27,7 @@ Flux slew rate ≈ active vector edge contribution:
 HB_psi ≥ Vdc / (8 · sqrt(3) · fs_max)
 ```
 
-## Algorithm (in `build_template.m`)
+## Algorithm (in your build script)
 
 ```matlab
 % Pre-chart construction:

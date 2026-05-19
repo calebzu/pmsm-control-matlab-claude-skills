@@ -6,7 +6,7 @@
 
 - **Park / Clarke / Anti-Park / Anti-Clarke** (amplitude-invariant, matches the conventions in [plant_modeling.md](plant_modeling.md))
 - **Anti_Park** subsystem (dq → αβ inverse Park, internally reads θ_e via Goto/From)
-- **PMSM block** (R2024b SPS wrapper with mask defaults)
+- **PMSM block** (R2024b SPS wrapper with explicit mask settings — `RefAngle` pre-set to original Park to match `shared/formulas/pmsm_formulas.md §1`; the `sps_lib` bare default is modified Park, 90° offset — see RefAngle CRIT below and F-CRIT 6)
 - **SVPWM** (`Discrete SV PWM Generator` block from `powerlib_extras/Discrete Control Blocks/`)
 - Common utilities: Mux 3, Demux, Constant, Gain, Sum, Integrator (with init)
 
@@ -46,6 +46,29 @@ if ~isempty(goto_blocks)
     'G-CRIT: Goto_The TagVisibility must be global');
 end
 ```
+
+## RefAngle CRIT — PMSM `RefAngle` Frame Alignment
+
+The R2024b `sps_lib/.../Permanent Magnet Synchronous Machine` block defaults `RefAngle = '90 degrees behind phase A axis (modified Park)'`. The project's chart Park convention (`d = α·cos(θe) + β·sin(θe)`, per `shared/formulas/pmsm_formulas.md §1`) is the original Park. The two must match — otherwise the plant dq frame is rotated 90° relative to the chart dq, a silent failure mode (see [broken_foc_diagnostics.md](broken_foc_diagnostics.md) F-CRIT 6).
+
+**Required**: copy from `shared/building_blocks/pmsm_blocks.slx/PMSM` (library instance is pre-set), or set explicitly when adding bare from `sps_lib`:
+
+```matlab
+set_param([mdl '/PMSM'], 'RefAngle', 'Aligned with phase A axis (original Park)');
+```
+
+A self-test in Phase 9 should assert this:
+
+```matlab
+pmsm_blocks = find_system(mdl, 'MaskType', 'Permanent Magnet Synchronous Machine');
+if ~isempty(pmsm_blocks)
+  assert(strcmp(get_param(pmsm_blocks{1}, 'RefAngle'), ...
+                'Aligned with phase A axis (original Park)'), ...
+    'RefAngle CRIT: PMSM RefAngle must be original Park');
+end
+```
+
+DTC αβ-frame methods are exempt (no Park transform).
 
 ## SVPWM Library Block
 

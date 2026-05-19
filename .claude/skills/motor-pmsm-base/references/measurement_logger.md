@@ -2,7 +2,7 @@
 
 ## Standard 4 Scopes (Mandatory)
 
-Every PMSM build_template.m must add these four Scopes. Method-specific Scopes are added on top, never as a replacement:
+Every PMSM build script (`build_template.m` by convention) must add these four Scopes. Method-specific Scopes are added on top, never as a replacement:
 
 ```matlab
 add_block('simulink/Sinks/Scope', [mdl '/Scope_wm_RPM'], 'Position', [...]);

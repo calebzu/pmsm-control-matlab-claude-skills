@@ -16,6 +16,7 @@ Reusable plant + frame conventions + building blocks + sanity-check templates + 
 - **Visual 4-check before trusting numerical metrics**: motor rotates / iq tracks reference / abc AC sinusoidal / Te energy balance. If any check fails, fix the implementation before computing 5-metric scores.
 - **One-click reproducibility**: model must Run from `.slx` double-click without prior script execution. Inject all parameters via `set_param(mdl, 'InitFcn', ...)`.
 - **Don't guess conventions.** dq is amplitude-invariant (factor 2/3); Anti_Park's internal `From "The"` requires `Goto_The TagVisibility='global'`. See [references/plant_modeling.md](references/plant_modeling.md) and [references/building_blocks.md](references/building_blocks.md).
+- **PMSM block `RefAngle` must be `'Aligned with phase A axis (original Park)'`.** R2024b `sps_lib` default is `'90 degrees behind phase A axis (modified Park)'`, which rotates the plant dq frame 90° relative to the chart Park convention — a silent failure mode (motor drifts to wrong operating point, abc non-clean sinusoidal, `id` large drift, `iq` cannot track `iq_ref`). Either copy PMSM from `shared/building_blocks/pmsm_blocks.slx` (pre-set), or `set_param([mdl '/PMSM'], 'RefAngle', 'Aligned with phase A axis (original Park)')`. DTC αβ-frame methods exempt. See [references/broken_foc_diagnostics.md](references/broken_foc_diagnostics.md) F-CRIT 6.
 
 ## Build Flow
 
@@ -39,7 +40,7 @@ If broken-FOC symptoms appear (motor stuck, abc DC-locked, iq permanently bang-b
 | ✅ Use this skill | ❌ Skip |
 |---|---|
 | Starting a new PMSM control method study (sensorless, DTC-SVM, MP-DTC, deadbeat, MTPA, weak-field) | Non-PMSM motors (induction / BLDC trapezoidal / SRM / DC) |
-| Designing a `build_template.m` skeleton for a PMSM method | Pure theory questions (dq frame, Park transform math) |
+| Designing your build script (conventionally named `build_template.m`) for a PMSM method | Pure theory questions (dq frame, Park transform math) |
 | Broken-FOC debugging (motor stalled, abc DC-locked, iq saturated) | Method already covered by `motor-fcs-mpc` / `motor-dtc-pmsm` / `motor-smc-pmsm` (use the specific skill) |
 | Need Phase 1.5 theory-anchor or Phase 4.5 sanity-check templates | MATLAB performance tuning (use `matlab-performance-optimizer`) or unit tests (use `matlab-test-creator`) |
 

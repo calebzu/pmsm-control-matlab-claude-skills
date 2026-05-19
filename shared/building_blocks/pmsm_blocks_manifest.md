@@ -53,6 +53,8 @@ Rs = ...; Ld = ...;   % etc.
 - **Outport[1]**: measurement bus (R2024b signals = `ias, ibs, ics, iqs, ids, vqs, vds, ha, hb, hc, w, theta, Te`; BusSelector picks the subset you need)
 - **LConn** (3 ports): stator A/B/C → UB LConn
 
+> ⚠️ **`RefAngle` note**: the catalog row above documents this library's PMSM instance, where `RefAngle` is explicitly pre-set to `'Aligned with phase A axis (original Park)'`. The R2024b `sps_lib` bare default is `'90 degrees behind phase A axis (modified Park)'` — 90° offset from the project Park convention (`shared/formulas/pmsm_formulas.md §1`), a silent failure mode if bare-added without `set_param`. If you must add the bare SPS block instead of copying from this library, follow with `set_param([mdl '/PMSM'], 'RefAngle', 'Aligned with phase A axis (original Park)')`. See the F-CRIT 6 entry in any method skill's `broken_foc_diagnostics.md`.
+
 ### `DC_Voltage_Source`
 - **LConn[1]** + **RConn[1]**: two physical terminals; polarity follows block orientation (LConn = below/−, RConn = above/+)
 

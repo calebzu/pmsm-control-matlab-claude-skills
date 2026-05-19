@@ -27,7 +27,7 @@ Build flat in main model (no Subsystem grouping needed for v1 baseline).
 
 ### Sign Convention Derivation
 
-Preserve as a comment in `build_template.m`:
+Preserve as a comment in your build script:
 
 ```
 ds/dt ≈ -Kt·iq/J + disturbance   (because e_w = wref - wm; wm acceleration reduces e_w)
