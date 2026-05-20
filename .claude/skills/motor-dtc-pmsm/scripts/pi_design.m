@@ -1,35 +1,41 @@
 function [Kp_rad, Ki_rad, Kp_rpm, Ki_rpm, info] = pi_design(varargin)
 % pi_design — Outer-loop speed PI gain calculator for PMSM DTC drives.
 %
-% KEY DIFFERENCE FROM motor-fcs-mpc/pi_design.m:
-%   FCS-MPC outer PI outputs iq_ref [A]  → plant gain has Kt:  G_p = Kt/[J·s·(T_eq·s+1)]
-%   DTC     outer PI outputs Te_ref [N·m] → plant gain NO  Kt:  G_p = 1 /[J·s·(T_eq·s+1)]
-%   So SO/PZC formulas drop Kt from numerator. Units of Kp/Ki are N·m-based, not A-based.
+% Unified 5-arg signature with motor-fcs-mpc/pi_design.m:
+%   FCS-MPC outer PI outputs iq_ref [A]  → pass Kt = 1.5·Pn·ψf (plant has Kt: G_p = Kt/[J·s·(T_eq·s+1)])
+%   DTC     outer PI outputs Te_ref [N·m] → pass Kt = 1         (plant has no Kt: G_p = 1/[J·s·(T_eq·s+1)])
+%   Mathematically equivalent: when Kt=1, formulas reduce to the no-Kt DTC form.
+%   Keeping signature unified avoids silent failure when both skills' scripts/ share MATLAB path.
+%   Units of Kp/Ki: N·m-based when Kt=1 (DTC native); A-based when Kt=1.5·Pn·ψf (FCS-MPC mode).
 %
 % Three modes per shared/formulas/pmsm_formulas.md §A:
 %
-%   1. 'SO'        Symmetrical Optimum, B=0 plant (default; see §A.2 method 3 — DTC adapted)
-%                  pi_design('SO', J, T_eq, a)              [4 args, Kt removed]
-%                  Kp = J / (a · T_eq)
-%                  Ki = J / (a^3 · T_eq^2)
+%   1. 'SO'        Symmetrical Optimum, B=0 plant (default; see §A.2 method 3)
+%                  pi_design('SO', J, Kt, T_eq, a)
+%                  Kp = J / (a · Kt · T_eq)
+%                  Ki = J / (a^3 · Kt · T_eq^2)
+%                  DTC native: pass Kt = 1 (formulas reduce to J/(a·T_eq), J/(a^3·T_eq^2)).
 %
-%   2. 'PZC'       Pole-Zero Cancellation, B>0 plant (see §A.2 method 1 — DTC adapted)
-%                  pi_design('PZC', J, B, omega_c)          [4 args, Kt removed]
+%   2. 'PZC'       Pole-Zero Cancellation, B>0 plant (see §A.2 method 1)
+%                  pi_design('PZC', J, Kt, B, omega_c)
 %                  Ki/Kp = B/J;   open-loop crossover = omega_c
-%                  Kp = omega_c · B
-%                  Ki = omega_c · B^2 / J
+%                  Kp = omega_c · B / Kt
+%                  Ki = Kp · B / J
+%                  DTC native: pass Kt = 1 (formulas reduce to omega_c·B, omega_c·B^2/J).
 %
 %   3. '2ndorder'  Legacy 2nd-order standard form (NOT SO; emits warning)
-%                  pi_design('2ndorder', J, wn, zeta)
-%                  Kp = 2·zeta·wn·J
-%                  Ki = wn^2 · J
+%                  pi_design('2ndorder', J, Kt, wn, zeta)
+%                  Kp = 2·zeta·wn·J / Kt
+%                  Ki = wn^2 · J / Kt
+%                  DTC native: pass Kt = 1.
 %
 % =====================================================================================
 % PHASE 4.5 THEORY SANITY CHECK
 % =====================================================================================
 % Plant (DTC, B=0):    G_p(s) = 1 / [J·s·(T_eq·s + 1)]
 % Controller (PI):     G_c(s) = (Kp·s + Ki)/s
-% SO design:           Kp = J/(a·T_eq), Ki = J/(a^3·T_eq^2),  τ_i = a^2·T_eq, ωc = 1/(a·T_eq)
+% SO design:           Kp = J/(a·Kt·T_eq), Ki = J/(a^3·Kt·T_eq^2),  τ_i = a^2·T_eq, ωc = 1/(a·T_eq)
+%                      (DTC native pass Kt=1; FCS-MPC mode pass Kt=1.5·Pn·ψf)
 %
 % --- 3 CLOSED-LOOP TRANSFER FUNCTIONS ---
 %   1. Reference tracking:  ω(s)/r(s) = L/(1+L),   L = G_c·G_p
@@ -81,6 +87,8 @@ function [Kp_rad, Ki_rad, Kp_rpm, Ki_rpm, info] = pi_design(varargin)
 %
 % Inputs:
 %   J        — rotor inertia [kg·m^2]
+%   Kt       — torque constant [N·m/A]. **DTC native: pass 1** (plant has no Kt).
+%              FCS-MPC mode: pass 1.5·Pn·ψf (SPMSM) or 1.5·Pn·[ψf + (Ld−Lq)·id] (IPMSM).
 %   For 'SO': T_eq — inner-loop equivalent time constant [s] (typ. 10·Tsc for DTC)
 %             a    — SO factor (2/3/4/6; default 4 → ζ_eq≈0.71)
 %   For 'PZC': B   — viscous friction [N·m·s]
@@ -90,17 +98,20 @@ function [Kp_rad, Ki_rad, Kp_rpm, Ki_rpm, info] = pi_design(varargin)
 %   Optional kwarg pair: 'T_window', value [s]  — Phase 4.5 sanity check window
 %
 % Outputs:
-%   Kp_rad, Ki_rad — gains for PI in rad/s domain (units: N·m·s/rad, N·m/rad)
-%   Kp_rpm, Ki_rpm — gains for PI in RPM domain   (units: N·m/RPM, N·m/(RPM·s))
-%   info struct    — diagnostic fields (.method, .omega_c, .t_settle, .tau_max,
+%   Kp_rad, Ki_rad — gains for PI in rad/s domain
+%                    units when Kt=1 (DTC native): N·m·s/rad, N·m/rad
+%                    units when Kt=1.5·Pn·ψf (FCS-MPC mode): A·s/rad, A/rad
+%   Kp_rpm, Ki_rpm — same gains in RPM domain (scaled by pi/30)
+%   info struct    — diagnostic fields (.method, .Kt, .omega_c, .t_settle, .tau_max,
 %                                       .verdict, .sanity_check_T_window)
 %
-% Usage example (DTC v1 baseline):
+% Usage example (DTC v1 baseline, pass Kt = 1):
 %   J = 5.58e-4; Tsc = 50e-6; T_eq = 10*Tsc; a = 4;
-%   [Kp_rad, Ki_rad, Kp_rpm, Ki_rpm, info] = pi_design('SO', J, T_eq, a, ...
+%   [Kp_rad, Ki_rad, Kp_rpm, Ki_rpm, info] = pi_design('SO', J, 1, T_eq, a, ...
 %                                                       'T_window', 0.2);
-%   % Then in build_template.m: assignin('base', 'Kp_w', Kp_rpm);  % or write to mdl InitFcn
-%   %                           assignin('base', 'Ki_w', Ki_rpm);
+%   % Pass Kt=1 because DTC outer PI directly outputs Te_ref [N·m] — no torque constant in plant.
+%   % Then in your build script: assignin('base', 'Kp_w', Kp_rpm);  % or write to mdl InitFcn
+%   %                            assignin('base', 'Ki_w', Ki_rpm);
 %   % Simulink: Discrete PID Controller block, fields P='Kp_w', I='Ki_w' (string refs).
 %   % info.verdict should report 'OK' with 5·τ_max = 26 ms ≤ T_window 200 ms
 %
@@ -143,18 +154,28 @@ function [Kp_rad, Ki_rad, Kp_rpm, Ki_rpm, info] = pi_design(varargin)
 
     switch lower(method)
         case 'so'
-            if n_pos < 3
+            if n_pos < 4
                 error('pi_design:SO_inputs', ...
-                      'SO mode needs (J, T_eq); a optional (default 4). Note: NO Kt for DTC.');
+                      'SO mode needs (J, Kt, T_eq); a optional (default 4). DTC native: pass Kt=1.');
             end
             J    = pos_args{2};
-            T_eq = pos_args{3};
-            if n_pos >= 4; a = pos_args{4}; else; a = 4; end
+            Kt   = pos_args{3};
+            T_eq = pos_args{4};
+            if n_pos >= 5; a = pos_args{5}; else; a = 4; end
+            % v1.0.2 transition guard: catch v1.0.1 4-arg call (J, T_eq, a) misalignment
+            if Kt < 0.005 || Kt > 100
+                error('pi_design:Kt_range_check', ...
+                    ['Kt=%.4e is out of typical range [0.005, 100] N·m/A. ', ...
+                     'v1.0.2 dtc signature: pi_design(''SO'', J, Kt, T_eq, a). ', ...
+                     'DTC native: pass Kt=1. Did you accidentally pass T_eq in the Kt position ', ...
+                     '(v1.0.1 4-arg signature)?'], Kt);
+            end
 
-            Kp_rad = J / (a * T_eq);
-            Ki_rad = J / (a^3 * T_eq^2);
+            Kp_rad = J / (a * Kt * T_eq);
+            Ki_rad = J / (a^3 * Kt * T_eq^2);
 
             info.J     = J;
+            info.Kt    = Kt;
             info.T_eq  = T_eq;
             info.a     = a;
             info.zeta_eq = damping_from_a(a);
@@ -164,22 +185,29 @@ function [Kp_rad, Ki_rad, Kp_rpm, Ki_rpm, info] = pi_design(varargin)
             info.tau_max  = tau_max_from_a(a) * T_eq;     % slowest closed-loop pole
 
         case 'pzc'
-            if n_pos < 4
+            if n_pos < 5
                 error('pi_design:PZC_inputs', ...
-                      'PZC mode needs (J, B, omega_c). Note: NO Kt for DTC.');
+                      'PZC mode needs (J, Kt, B, omega_c). DTC native: pass Kt=1.');
             end
             J = pos_args{2};
-            B = pos_args{3};
-            omega_c = pos_args{4};
+            Kt = pos_args{3};
+            B = pos_args{4};
+            omega_c = pos_args{5};
             if B <= 0
                 error('pi_design:PZC_B_positive', ...
                       'PZC requires B > 0. For B=0 plant use ''SO'' mode.');
             end
+            if Kt < 0.005 || Kt > 100
+                error('pi_design:Kt_range_check', ...
+                    ['Kt=%.4e is out of typical range [0.005, 100] N·m/A. ', ...
+                     'v1.0.2 dtc signature: pi_design(''PZC'', J, Kt, B, omega_c). ', ...
+                     'DTC native: pass Kt=1. Did you accidentally pass B in the Kt position?'], Kt);
+            end
 
-            Kp_rad = omega_c * B;
-            Ki_rad = omega_c * B^2 / J;
+            Kp_rad = omega_c * B / Kt;
+            Ki_rad = Kp_rad * B / J;
 
-            info.J = J; info.B = B;
+            info.J = J; info.Kt = Kt; info.B = B;
             info.omega_c = omega_c;
             info.t_settle_tracking = 4 / omega_c;
             info.t_settle = info.t_settle_tracking;
@@ -190,23 +218,31 @@ function [Kp_rad, Ki_rad, Kp_rpm, Ki_rpm, info] = pi_design(varargin)
             info.tau_max  = max(1/omega_c, J/B);          % slow pole = max of two
 
         case '2ndorder'
-            if n_pos < 3
+            if n_pos < 4
                 error('pi_design:2ndorder_inputs', ...
-                      '2ndorder mode needs (J, wn, zeta=0.7). Note: NO Kt for DTC.');
+                      '2ndorder mode needs (J, Kt, wn, zeta=0.7). DTC native: pass Kt=1.');
             end
             J = pos_args{2};
-            wn = pos_args{3};
-            if n_pos >= 4; zeta = pos_args{4}; else; zeta = 0.7; end
+            Kt = pos_args{3};
+            wn = pos_args{4};
+            if n_pos >= 5; zeta = pos_args{5}; else; zeta = 0.7; end
+            if Kt < 0.005 || Kt > 100
+                error('pi_design:Kt_range_check', ...
+                    ['Kt=%.4e is out of typical range [0.005, 100] N·m/A. ', ...
+                     'v1.0.2 dtc signature: pi_design(''2ndorder'', J, Kt, wn, zeta). ', ...
+                     'DTC native: pass Kt=1. Did you accidentally pass wn in the Kt position?'], Kt);
+            end
 
             warning('pi_design:legacy_2ndorder', ...
                 ['2ndorder mode ignores inner-loop dynamics (T_eq). For B=0 DTC plant ', ...
                  'prefer ''SO'' mode which couples gains to hysteresis-equivalent T_eq. ', ...
                  'See pmsm_formulas.md §A.2 + §A.7.']);
 
-            Kp_rad = 2 * zeta * wn * J;
-            Ki_rad = wn^2 * J;
+            Kp_rad = 2 * zeta * wn * J / Kt;
+            Ki_rad = wn^2 * J / Kt;
 
             info.J = J;
+            info.Kt = Kt;
             info.wn   = wn;
             info.zeta = zeta;
             info.omega_c = wn;
@@ -303,14 +339,26 @@ end
 function print_summary(Kp_rad, Ki_rad, Kp_rpm, Ki_rpm, info)
     fprintf('\n=== pi_design (%s) — DTC variant ===\n', upper(info.method));
     if isfield(info, 'J');    fprintf('  J        = %.3e kg·m^2\n', info.J);   end
+    if isfield(info, 'Kt')
+        if info.Kt == 1
+            fprintf('  Kt       = 1 (DTC native, no torque constant in plant)\n');
+        else
+            fprintf('  Kt       = %.4f N·m/A (FCS-MPC mode)\n', info.Kt);
+        end
+    end
     if isfield(info, 'T_eq'); fprintf('  T_eq     = %.3e s (%.0f μs)\n', info.T_eq, info.T_eq*1e6); end
     if isfield(info, 'a');    fprintf('  a        = %g (zeta_eq ≈ %.2f)\n', info.a, info.zeta_eq); end
     if isfield(info, 'B');    fprintf('  B        = %.3e N·m·s\n', info.B);    end
     if isfield(info, 'wn');   fprintf('  wn       = %g rad/s, zeta = %g\n', info.wn, info.zeta); end
-    fprintf('\n  Kp_rad   = %.4e N·m·s/rad\n', Kp_rad);
-    fprintf('  Ki_rad   = %.4e N·m/rad\n',     Ki_rad);
-    fprintf('  Kp_rpm   = %.4e N·m/RPM\n',     Kp_rpm);
-    fprintf('  Ki_rpm   = %.4e N·m/(RPM·s)\n', Ki_rpm);
+    if isfield(info, 'Kt') && info.Kt == 1
+        kp_unit = 'N·m·s/rad'; ki_unit = 'N·m/rad'; kp_rpm_unit = 'N·m/RPM'; ki_rpm_unit = 'N·m/(RPM·s)';
+    else
+        kp_unit = 'A·s/rad';   ki_unit = 'A/rad';   kp_rpm_unit = 'A/RPM';   ki_rpm_unit = 'A/(RPM·s)';
+    end
+    fprintf('\n  Kp_rad   = %.4e %s\n', Kp_rad, kp_unit);
+    fprintf('  Ki_rad   = %.4e %s\n',   Ki_rad, ki_unit);
+    fprintf('  Kp_rpm   = %.4e %s\n',   Kp_rpm, kp_rpm_unit);
+    fprintf('  Ki_rpm   = %.4e %s\n',   Ki_rpm, ki_rpm_unit);
     fprintf('\n  omega_c  = %.1f rad/s   (~%.1f Hz)\n', info.omega_c, info.omega_c/(2*pi));
     if isfield(info, 'tau_max')
         fprintf('  tau_max  = %.2f ms  (slowest closed-loop pole; Phase 4.5)\n', info.tau_max*1000);

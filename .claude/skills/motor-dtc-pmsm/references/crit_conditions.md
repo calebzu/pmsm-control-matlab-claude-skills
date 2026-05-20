@@ -24,7 +24,7 @@ Default `psi_ref` must come from one of (in priority order):
 
 ## C-CRIT — `T_eq_factor` Selection
 
-Speed PI design via `pi_design('SO', J, T_eq, a_so)` requires the **inner-loop equivalent time constant** `T_eq`. For DTC, `T_eq = 15 · Tsc` is the default; for FCS-MPC, `T_eq = 5 · Tsc`. They differ because the inner loops are physically different:
+Speed PI design via `pi_design('SO', J, Kt, T_eq, a_so)` requires the **inner-loop equivalent time constant** `T_eq`. For DTC, `T_eq = 15 · Tsc` is the default; for FCS-MPC, `T_eq = 5 · Tsc`. They differ because the inner loops are physically different. **DTC must pass `Kt = 1`** (outer PI outputs `Te_ref` [N·m], plant has no Kt); FCS-MPC passes `Kt = 1.5·Pn·ψf`. The unified 5-arg signature (since v1.0.2) keeps both skills' `pi_design.m` interface-compatible; old 4-arg DTC calls trigger a Kt-range-check error.
 
 - **FCS-MPC inner loop**: dq current PI cost-min @ each Tsc → bandwidth ≈ 1 / (5·Tsc) ≈ 4 kHz @ Tsc = 50 μs
 - **DTC inner loop**: hysteresis switching, no current PI; switching frequency limited by `fs_max` (typically 5–20 kHz) and HB amplitude. Effective bandwidth is much lower than FCS-MPC's current PI → `T_eq` must be larger

@@ -9,7 +9,7 @@ For each decision, present the user with options + recommended default, then get
 | D03 | V_k numbering | **Standard**: V1=[100]@0°, V2=[110]@60°, …, V6=[101]@300° | Reference's non-standard permutation (skill canon overrides) |
 | D04 | Te feedback source | **αβ cross-product estimator**: `Te = (3/2)·Pn·(ψ_α·iβ − ψ_β·iα)` | `'plant'` reads PMSM bus Te directly (educational; masks estimation errors) |
 | D05 | Sector detection | **`atan2(ψ_β, ψ_α) + mod 2π + floor / (π/3) + 1`** | Binary encoding (faster but less readable) |
-| D06 | Speed PI design | **SO (Symmetric Optimum) via `pi_design('SO', J, T_eq, a)`** with `a=4` | PZC ❌ unusable for B=0 plant (slow disturbance pole); 2nd-order standard form ❌ ignores inner-loop dynamics |
+| D06 | Speed PI design | **SO (Symmetric Optimum) via `pi_design('SO', J, 1, T_eq, a)`** with `a=4`. Pass `Kt=1` (DTC native; plant has no torque constant). | PZC ❌ unusable for B=0 plant (slow disturbance pole); 2nd-order standard form ❌ ignores inner-loop dynamics |
 | D07 | T_eq factor | **15 · Tsc** (DTC) | 5·Tsc ❌ FCS-MPC default; gives wm 33% overshoot for DTC. Acceptable range 10–20·Tsc |
 | D08 | Anti-windup on Speed PI | **OFF** (v1 baseline) | Clamp / back-calculation (production must add) |
 | D09 | Flux integrator | **Forward Euler with persistent state, init `[ψ_f, 0]`** | LPF replacement (drift-compensated; v2+); SOGI / Kalman / sliding-mode observer (out of v1) |
