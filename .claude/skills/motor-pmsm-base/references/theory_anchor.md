@@ -20,7 +20,7 @@ These are in `shared/formulas/pmsm_formulas.md`. Do **not** re-sign or re-derive
 | `pmsm_formulas.md #0–#7` | PMSM dq plant: voltage equations, electromagnetic torque, mechanical equation, electrical/mechanical angle relation |
 | `pmsm_formulas.md §A` | PI controller design methods (Pole-Zero Cancellation, Symmetric Optimum, Modulus Optimum, Loop Shaping) |
 | `pmsm_formulas.md §B` | DTC: αβ flux estimation, electromagnetic torque, hysteresis comparators, sector identification, switching table |
-| `pmsm_formulas.md §C` | SMC: sliding surface, reaching law, Lyapunov analysis, boundary layer |
+| `pmsm_formulas.md §C` | SMC: PD-type sliding surface (filtered derivative), Super-Twisting reaching law, strict-Lyapunov gain conditions, chattering |
 
 For a new PMSM method (e.g., sensorless, MTPA, weak-field):
 1. Audit coverage: which formulas already exist vs. need to be added vs. not needed

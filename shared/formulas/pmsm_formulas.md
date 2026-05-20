@@ -5,7 +5,7 @@ A reference set of PMSM (permanent-magnet synchronous motor) modeling and contro
 - **§0–§7**: PMSM plant equations (dq-frame voltage, flux, torque, mechanical, kinematic)
 - **§A**: Outer-loop speed PI design (4 methods + selection decision tree)
 - **§B**: DTC controller-side formulas (αβ flux estimator, sector decoding, switching table, hysteresis comparators)
-- **§C**: SMC speed-loop control law (sliding surface, control law, Lyapunov gain bound, chattering)
+- **§C**: SMC speed-loop control law (PD-type sliding + Super-Twisting, Lyapunov gain conditions, chattering)
 
 **Conventions**:
 - **Park transform**: amplitude-invariant (2/3 coefficient), per §1
@@ -701,9 +701,9 @@ The 3-level form enables rapid reversal/braking. **Not used in baseline.**
 
 ---
 
-# §C — Sliding Mode Control law (SMC-PMSM speed-loop ISMC)
+# §C — Sliding Mode Control law (SMC-PMSM speed-loop, PD-type sliding + STA)
 
-Speed-loop ISMC (integral SMC) with classical `sgn` switching term (baseline). Inner current loop assumed PI cascade. Baseline classical-sgn form exhibits chattering — upgrade paths in §C.4 and §C.6.
+Speed-loop SMC: **PD-type sliding surface (filtered derivative) + Super-Twisting Algorithm (STA) reaching law**. Inner current loop = PI cascade (PZC). STA is a **second-order** sliding-mode algorithm — the switching acts on the *integral* of the control, so the control signal `iq_ref` is continuous through `s = 0`: no chattering by construction (contrast classical `sgn`, ruled out in §C.7). This is the production form for the `motor-smc-pmsm` skill.
 
 ## §C.1 Speed error definition
 
@@ -723,57 +723,51 @@ e_w = ω_ref − ω_m       [rad/s, internal to control law]
 
 ---
 
-## §C.2 Sliding surface definition (PI-type ISMC)
+## §C.2 Sliding surface definition (PD-type, filtered derivative)
 
 ```
-s = e_w + λ · ∫₀ᵗ e_w dτ
-ṡ = ė_w + λ · e_w
+s = e_w + λ · ė_w^f      where   ė_w^f = [ p / (Tf·p + 1) ] · e_w
+                         (Simulink Transfer Fcn: Num=[1 0], Den=[Tf 1]; p = d/dt, Laplace s)
 ```
 
 | Symbol | Meaning | Unit | Range |
 |---|---|---|---|
-| `s` | sliding surface variable | rad/s | design target: s → 0 (reaching) + s ≈ 0 (sliding) |
-| `λ` | ISMC design constant | 1/s | typical [50, 500], corresponding to τ ∈ [2, 20] ms |
+| `s` | sliding surface variable | rad/s | design target: finite-time `s → 0` **and** `ṡ → 0` (2nd-order sliding) |
+| `λ` | PD weight (`lambda_pd`) | s | transient phase-lead; default settling-time based (~10 ms) |
+| `Tf` | derivative filter constant (`Tf_deriv`) | s | ≈ `Tsc`; bounds derivative HF gain to `1/Tf` |
+| `ė_w^f` | filtered speed-error derivative | rad/s² | proper (causal) derivative of `e_w` |
 
 **Symbol choice**: `λ` (not `c`) — avoids conflict with §A.1 plant coefficient.
 
-### Physical meaning
-At sliding (`s = 0`): `ṡ = 0` → `ė_w + λ·e_w = 0` → speed error decays exponentially:
+### Why FILTERED, not pure, derivative (relative-degree key)
+A pure-derivative surface `s = e_w + λ·de_w/dt` is **improper**: the control `iq` would appear algebraically in `s` (relative-degree mismatch), so STA cannot act on it. The filter `p/(Tf·p+1)` makes `s` a **proper lead-lag of `e_w`**:
 ```
-e_w(t) = e_w(0) · exp(−λ·t),   τ_sliding = 1/λ
+s(p) = [ ((Tf + λ)·p + 1) / (Tf·p + 1) ] · e_w(p)
 ```
-λ = sliding-phase error convergence rate.
+Relative degree 0 (proper) → the map `iq → s` keeps the plant's relative degree **1**. **STA requires a relative-degree-1 sliding variable** [Levant 1993; Moreno & Osorio 2012]. DC gain = 1 → `s → 0  ⟺  e_w → 0` at steady state; the `λ` term injects transient phase-lead (damping).
 
-### Interface with §A.3 SO (reusable)
-PI-type ISMC sliding surface has mathematical equivalence to a standard speed PI:
-- PI: `u_PI = Kp·e + Ki·∫e dt = Kp·(e + (Ki/Kp)·∫e dt)`
-- ISMC: `s = e + λ·∫e dt`
-- Correspondence: **`λ = Ki/Kp`** (PI zero location)
-
-Reusing SO Kessler: `λ = Ki/Kp = 1/(a²·T_eq)`. Example: `a = 4, T_eq = 200 μs` → `λ ≈ 312.5 [1/s]` → `τ_sliding ≈ 3.2 ms`. Engineering range `λ ∈ [50, 500]` ↔ `a ∈ [3, 7]`.
-
-### Alternative forms ruled out
-- PD-type `s = c·e + ė`: first-order plant + second-order surface mismatch → control law involves `dTe/dt`, higher complexity
-- Zero-order `s = e_w`: no integral action, step TL leaves static error
-- Abstract state-space `s = g(x) − z(t)` general ISMC form: too abstract for concrete PMSM speed-loop
+**NO integrator in the surface** → no surface wind-up. STA already supplies the integral (equivalent-control) action through its own `∫sgn(s)` channel (§C.4); a surface integral (PI-type ISMC) is redundant and breaks the STA strict-Lyapunov structure — see §C.7.
 
 ### Suspended assumption
-- **A_smc2**: Speed system as first-order plant `J·dω_m/dt = Te − B·ω_m − TL` (from A_smc1 with ideal inner loop). Consistent with §A.1 plant model (degenerates to integrator when B = 0)
+- **A_smc2**: Speed system as first-order plant `J·dω_m/dt = Te − B·ω_m − TL` (from A_smc1 with ideal-fast inner loop). Consistent with §A.1 plant model. `B > 0` mandatory (SMC dissipation port; §C.5) — does **not** degenerate to a pure integrator.
 
 ---
 
 ## §C.3 Sliding-surface dynamics (`ṡ` with plant substituted)
 
+At the sliding-relevant scale the lead-lag DC gain is 1 (`s ≈ e_w`), so:
 ```
-ṡ = λ · e_w − (Kt/J) · iq + (B/J) · ω_m + (T_L/J)
+ṡ ≈ ė_w = −(Kt/J)·iq + d ,     d = (B·ω_m + T_L)/J     [rad/s², lumped matched disturbance]
 ```
-
 with `Kt = (3/2)·P_n·ψ_f` (SPMSM).
 
-This is `ṡ` expressed explicitly in terms of control input `iq` — the starting point for §C.4 control law.
+This is `ṡ` expressed explicitly in terms of control input `iq` — the starting point for §C.4.
+
+- The control input `iq` appears in `ṡ` (not in `s`) → **relative degree 1** → STA applicable (§C.4).
+- `d` lumps the *known* friction `(B·ω_m)/J` and the *unknown* load `T_L/J`. STA rejects the whole of `d` via its integral channel — **no explicit equivalent-control feedforward needed** (contrast classical-sgn §C.7, which must add an `u_eq` term). `|d| ≤ M` bounds the gains (§C.5).
 
 ### Derivation outline (4 steps)
-1. **Differentiate §C.2**: `ṡ = ė_w + λ·e_w`
+1. **Differentiate §C.2** (`s ≈ e_w` at DC): `ṡ ≈ ė_w`
 2. **Expand `ė_w`** (with ω_ref piecewise constant → A_smc3): `ė_w = −ω̇_m`
 3. **Substitute plant §6**: `ω̇_m = (1/J)·(Te − B·ω_m − T_L)`
 4. **Substitute plant §5 SPMSM (id=0 → A_smc4)**: `Te = Kt·iq` → final form
@@ -782,164 +776,126 @@ This is `ṡ` expressed explicitly in terms of control input `iq` — the starti
 
 | ID | Content | Failure / Note |
 |---|---|---|
-| **A_smc3** | ω_ref piecewise constant (`dω_ref/dt = 0`) | Ramp inputs need ω̇_ref feedforward. Baseline uses step inputs to avoid |
+| **A_smc3** | ω_ref piecewise constant (`dω_ref/dt = 0`) | Ramp inputs need ω̇_ref feedforward. Baseline uses step / ramp-to-hold |
 | **A_smc4** | SPMSM (`Ld = Lq`, `id_ref = 0`), `Kt = (3/2)·P_n·ψ_f` | IPMSM MTPA → Kt includes reluctance `(3/2)·Pn·[ψf + (Ld−Lq)·id]`. Baseline SPMSM-only |
 
 ### Physical meaning
-- ṡ = "motion rate" of sliding surface; control target: ṡ → 0
-- `iq` is the only controllable variable (`(B/J)·ω_m` is current state, `T_L` unknown disturbance, `λ·e_w` from surface)
-- Control design = solve `ṡ = −reaching_law(s)` for `iq_ref` (see §C.4)
+- ṡ = "motion rate" of sliding surface; control target: `ṡ → 0` (and `s → 0`)
+- `iq` is the only controllable variable; `d` is the lumped matched disturbance the STA must dominate
+- Control design = drive `ṡ` with the STA reaching law and solve for `iq_ref` (see §C.4)
 - For Lyapunov design (§C.5), `iq` coefficient `Kt/J` is the control gain `b > 0`
 
 ---
 
-## §C.4 Control law — classical sgn + constant-rate reaching law (baseline)
+## §C.4 Control law — Super-Twisting Algorithm (STA) reaching law
 
 ```
-iq_ref = (J·λ/Kt)·e_w + (B/Kt)·ω_m + (J·K/Kt)·sgn(s)
-         └──── u_eq (equivalent control) ────┘     └─switching term─┘
+u_sta  = K1·|s|^0.5·sgn(s) + K2·∫ sgn(s) dt        [acceleration, rad/s²]
+iq_ref = (J/Kt) · u_sta      →  Saturation(±iq_max)     (B-CRIT mandatory)
 ```
 
-with:
-- `K > 0` switching gain [rad/s²], from §C.5: `K > |T_L|_max / J`
-- `Kt = (3/2)·P_n·ψ_f` SPMSM torque constant
-- Engineering value (2× safety margin): `K = 2 · |T_L|_max / J`
+with `K1, K2 > 0` (Lyapunov bounds §C.5), `Kt = (3/2)·P_n·ψ_f`.
 
-### Derivation outline
-1. **Reaching law**: `ṡ_design = −K·sgn(s)`, `K > 0` (simplest constant-rate; drives s → 0 in finite time)
-2. **Equate plant ṡ (§C.3) with ṡ_design**:
-   ```
-   λ·e_w − (Kt/J)·iq + (B/J)·ω_m + (T_L/J) = −K·sgn(s)
-   ```
-3. **Solve for iq**:
-   ```
-   iq = (J/Kt)·[λ·e_w + (B/J)·ω_m + (T_L/J) + K·sgn(s)]
-   ```
-4. **Absorb unknown T_L into switching term** (A_smc5: T_L is bounded, K must dominate):
-   ```
-   iq_ref = (J·λ/Kt)·e_w + (B/Kt)·ω_m + (J·K/Kt)·sgn(s)
-   ```
+### Sign-convention derivation (preserve as build-script comment)
+```
+ṡ ≈ −(Kt/J)·iq + d            (increasing iq → Te↑ → ω_m↑ → e_w↓ → s↓)
+set iq_ref = (J/Kt)·u_sta  →  ṡ ≈ −u_sta + d
+standard STA  u = −K1·|σ|^0.5·sgn(σ) − K2·∫sgn(σ)  drives  σ̇ → 0
+⇒ with our sign mapping, the positive-gain form above results (u_sta enters with +).
+```
 
-### Three components
+### Why STA (second-order sliding)
 
-| Term | Name | Physical role | Analogy |
-|---|---|---|---|
-| `(J·λ/Kt)·e_w` | u_eq proportional | error-driven part of equivalent control | PI `Kp·e` |
-| `(B/Kt)·ω_m` | u_eq friction feedforward | known plant friction compensation | FOC dq decoupling FF |
-| `(J·K/Kt)·sgn(s)` | switching robust term | drives s → 0 + rejects unknown T_L | high-frequency switching (chattering source) |
+| Property | Mechanism |
+|---|---|
+| Continuous `iq_ref` | the discontinuity sits in `u̇_sta` (the `K2·∫sgn` term differentiates to `K2·sgn`); `iq_ref` itself is continuous → **no chattering by construction** |
+| Disturbance rejection without FF | `K2·∫sgn(s)` is the equivalent-control estimate of the lumped `d = (B·ω_m + T_L)/J` → rejects matched disturbance, no manual feedforward |
+| Finite-time, 2nd-order | converges to `s = ṡ = 0` in finite time (§C.5) |
 
 ### Suspended assumption
 
 | ID | Content |
 |---|---|
-| **A_smc5** | T_L unknown but bounded `|T_L| ≤ T_L,max`. Classical SMC matched-disturbance assumption. Engineering value: worst-case load in design spec |
+| **A_smc5** | matched disturbance bounded `|d| ≤ M = (TL_max + B·ω_max)/J`. STA rejects matched disturbance up to the gain bound (§C.5). Engineering value: worst-case load in design spec |
 
-### Upgrade paths (chattering mitigation)
-- **(a) Boundary-layer SMC** ⭐: `sgn(s) → sat(s/φ)`, `φ ≈ 0.1 · |s|_typical`. Eliminates chattering within boundary; sliding precision softened. Easy to implement — **recommended first upgrade**
-- **(b) Exponential reaching law**: `ṡ = −ε·sgn(s) − q·s`. Faster reaching when far, indirect chattering mitigation
-- **(c) Super-twisting (STA)**: `ṡ = −k1·|s|^0.5·sgn(s) − k2·∫sgn(s)dt`. Higher-order SMC; continuous control, no chattering; higher tuning complexity
+### Ruled-out reaching laws
+Classical `sgn`, boundary-layer `sat`, PI-type ISMC and the unfiltered pure-derivative PD surface are documented (with reasons) in §C.7 — STA supersedes all of them as the production form.
 
 ---
 
-## §C.5 Lyapunov stability + gain bound (K design criterion)
+## §C.5 Lyapunov stability + STA gain conditions (C-CRIT)
 
-**Lyapunov candidate**: `V = (1/2)·s²`
+STA finite-time convergence to the 2nd-order sliding set `s = ṡ = 0` is proven by a **strict (quadratic) Lyapunov function** `V = ζᵀ·P·ζ`, with `ζ = [|s|^0.5·sgn(s),  ∫sgn(s)·dτ]ᵀ`, giving `V̇ ≤ −κ·V^{1/2} < 0` (finite-time) under sufficient gains tied to the disturbance bound [Moreno & Osorio 2012]. Unlike `V = ½s²` for classical 1st-order SMC, this quadratic form is *strict* and certifies convergence of **both** `s` and `ṡ`.
 
-**Convergence condition** (`V̇ < 0  ∀s ≠ 0`):
+**Disturbance bound**:
 ```
-V̇ = s · ṡ ≤ −(K − |T_L|_max/J) · |s| < 0
-```
-
-**Gain bound**:
-```
-K > |T_L|_max / J
+M = (TL_max + B·ω_max) / J        [rad/s²]
 ```
 
-Engineering value: `K = 2 · |T_L|_max / J` (2× safety margin).
-
-### Derivation outline (4 steps)
-1. **Choose V**: positive definite `V = (1/2)·s²`, `V(0) = 0`
-2. **Differentiate**: `V̇ = s · ṡ`
-3. **Substitute §C.4 control law into §C.3 ṡ** (λ·e_w cancels with −λ·e_w; (B/J)·ω_m cancels with −(B/J)·ω_m):
-   ```
-   ṡ_actual = −K·sgn(s) + (T_L/J)        (actual, with unknown T_L)
-   ```
-4. **Compute V̇ + apply `|T_L| ≤ T_L,max` (A_smc5)**:
-   ```
-   V̇ = s · [−K·sgn(s) + T_L/J]
-      = −K·|s| + (T_L/J)·s
-      ≤ −K·|s| + (|T_L|_max/J)·|s|
-      = −(K − |T_L|_max/J)·|s|
-   ```
-   For `V̇ < 0`: `K > |T_L|_max / J`
-
-### Physical meaning
-- **K** = switching reaching rate (rad/s²); determines how fast s → 0
-- **`|T_L|/J`** = disturbance-induced ṡ offset; K must dominate
-- Convergence condition: **switching gain dominates disturbance**
-
-### Reaching time estimate
-From `V̇ ≤ −η·|s|` with `η = K − |T_L|_max/J > 0`:
+**Sufficient gains** (standard practical tuning rule [Shtessel et al. 2014; Levant 1993]; the `K1 ∝ √·`, `K2 ∝ ·` structure is the homogeneity-based selection — cf. [Xiong, Kamal & Jin 2018, eq. 8]):
 ```
-t_reach ≤ |s(0)| / η
+K1 > 1.5 · √M
+K2 > 1.1 · M
 ```
 
-### Key limitation
-- Lyapunov analysis proves **reaching-phase convergence only** (s → 0 in finite time)
-- Sliding-phase performance (e_w → 0 once s ≈ 0) governed by §C.2 (`τ = 1/λ`)
-- Only **matched disturbances** (T_L in input channel) are compensated; unmatched disturbances are not
+Build script asserts both at construction (C-CRIT). Default auto-computation with empirical margin:
+```
+K1_sta = max(200 , 1.5·√M · 1.5)
+K2_sta = max(8000, 1.1·M  · 1.3)
+```
+
+### Honesty note on the bound
+The textbook rule's `L` bounds the perturbation **derivative** `|ḋ| ≤ L`; here `M` is a **magnitude** bound used as a practical / conservative proxy (load torque slowly-varying ⇒ `ḋ` scale ~ `M`; the 1.5 / 1.3 margins add buffer). The bound is a **necessary** condition for finite-time reaching, **not** a guarantee of TL-step trough depth — on high-`M` plants pump `K1` to 3–5× and `K2` to 3× the floor (see acceptance criteria / skill `control_law.md`).
+
+### `B > 0` mandatory
+`B = 0` removes the `(B/J)·ω` damping channel; SMC needs a dissipation port (chattering energy sink). Default `B = 0.008`.
+
+### Key properties
+- **K1** = `|s|^0.5` reaching gain (rad/s²·√s); **K2** = integral robustness gain (rad/s³). Both must dominate `M`.
+- Convergence to **both** `s → 0` **and** `ṡ → 0` (2nd-order sliding), unlike classical 1st-order SMC (`s → 0` only).
+- Only **matched** disturbances (`T_L` in the input channel) are compensated; unmatched disturbances are not.
 
 ---
 
-## §C.6 Discretization + chattering — physical origin
+## §C.6 Discretization + chattering
 
-### Discretized form (ZOH sampling at `Tsc`, typical 100 μs to 1 ms)
+### Discretized form (ZOH sampling at `Tsc`, typical 50 μs to 1 ms)
 ```
-iq_ref[k] = (J·λ/Kt)·e_w[k] + (B/Kt)·ω_m[k] + (J·K/Kt)·sgn(s[k])
-s[k]      = e_w[k] + λ·Tsc · Σᵢ₌₀^{k−1} e_w[i]
+s[k]      = e_w[k] + λ·ė_w^f[k]                              (ė_w^f from the [1 0]/[Tf 1] filter, sampled)
+u_sta[k]  = K1·|s[k]|^0.5·sgn(s[k]) + K2·I[k],   I[k] = I[k−1] + Tsc·sgn(s[k])   (forward Euler integral)
+iq_ref[k] = (J/Kt)·u_sta[k]                                  (ZOH-held to (k+1)·Tsc)
 ```
-`sgn(s[k])` is computed at sample instant `k·Tsc` and held by ZOH to `(k+1)·Tsc`.
 
-### Chattering origin
-Root cause: `sgn(s)` at `s = 0` theoretically requires infinitely fast switching (discontinuous). Under discrete sampling:
-1. Sample `k`: `s[k] > 0` → `sgn = +1` → drives s toward 0
-2. ZOH holds: in `[k·Tsc, (k+1)·Tsc]`, iq constant → s keeps decreasing
-3. Sample `k+1`: `s[k+1]` may have crossed 0 → `sgn = −1` → driving reverses
-4. Steps 2–3 repeat → **limit cycle** of s near 0
+### Why STA suppresses chattering
+Classical `sgn` (§C.7) feeds the discontinuity **directly** into `iq_ref` → discrete limit-cycle of amplitude `O(Tsc)`, with `Δiq ≈ 2·(J·K/Kt)`. STA puts the discontinuity in `u̇_sta` only (the `K2·∫sgn` integral), so the realized `iq_ref` is **continuous** and the discrete sliding accuracy is **`O(Tsc²)`** (Levant 2nd-order accuracy [Levant 1993]) — orders of magnitude below classical-sgn for the same `Tsc`.
 
-### Theoretical amplitude estimates
-```
-|s|_chatter ≈ K · Tsc                    (one-step ṡ × sample time)
-Δiq        = 2 · (J·K/Kt)                (peak-to-peak iq oscillation)
-ΔTe        = Kt · Δiq                    (corresponding torque oscillation)
-```
-For typical engineering values, `ΔTe` greatly exceeds `T_L_max` — baseline classical-sgn unsuitable for production; mitigation required.
+### Solver requirement
+The `Sign` block is discontinuous → fixed-step `ode3` + `ZeroCrossControl='DisableAll'` (variable-step or ZC-on causes step explosion). See base/`pre_build_grid.md`.
 
-### Mitigation (priority order)
+### Expectations
+- ✅ Speed converges in finite time; `s, ṡ → 0`
+- ✅ TL rejection via the STA integral (`K2·∫sgn`), no manual feedforward
+- ✅ `iq_ref` continuous → Te ripple low (no `sgn`-driven oscillation)
+- ⚠️ High-`M` plants: TL-step trough may need gain pumping (§C.5)
 
-**Priority 1: Boundary-layer SMC (sgn → sat)** ⭐
-```
-sgn(s) → sat(s/φ),  φ ≈ 0.1 · |s|_typical
-```
-Within `|s| < φ`, sat is linear and smooth; outside returns to sgn → chattering eliminated within boundary. Cost: sliding precision softened (steady-state error ≈ boundary-layer width). Easy implementation.
+---
 
-**Priority 2: Higher sampling rate**
-Reducing `Tsc` linearly reduces `|s|_chatter`. Constraints: PWM frequency, sensor noise, compute capability.
+## §C.7 Ruled-out alternatives (why PD-sliding + STA)
 
-**Priority 3: Higher-order SMC (super-twisting / HOSMC)**
-Continuous control signal (no `sgn`); chattering eliminated in theory. Higher tuning complexity.
+These are **not** the production form; documented so the design choice is auditable.
 
-**Priority 4: Hysteresis sgn**
-Don't switch when `s` near 0; only switch when `|s| > δ`. Reduces switching frequency but degrades sliding precision.
+| Alternative | Form | Why ruled out |
+|---|---|---|
+| **PI-type ISMC** | `s = e_w + λ·∫e_w` | surface integrator → wind-up; redundant with STA's own integral channel; the extra state breaks the STA strict-Lyapunov structure |
+| **Classical sgn** | `iq_ref = u_eq + (J·K/Kt)·sgn(s)` | discontinuous control → chattering `ΔTe ≈ 2·J·K`; only 1st-order sliding (`s→0` only); needs explicit `u_eq` feedforward. Pedagogical baseline only |
+| **Boundary-layer sat** | `sgn(s) → sat(s/φ)` | trades sliding precision (steady-state error ≈ `φ`) for chattering reduction; STA gets continuity *without* the precision loss |
+| **Pure-derivative PD** | `s = e_w + λ·de_w/dt` (unfiltered) | improper / relative-degree mismatch — control appears algebraically in `s`. The filtered derivative (§C.2) is the fix |
+| **Zero-order** | `s = e_w` | valid relative-degree-1 STA surface (common in the literature) but no transient phase-lead; PD-type adds damping |
 
-### Baseline expectations
-- ✅ Speed tracking converges (after reaching phase, e_w → 0)
-- ✅ TL-disturbance rejection works (`K > |T_L|_max / J`)
-- ❌ Te ripple significantly above design value (chattering severe)
-- ❌ iq oscillation near `±(J·K/Kt)` (may approach iq_max limit)
-- ❌ ω micro-oscillations visible on scopes
-- ⚠️ Switching frequency ≈ fs (sampling rate) → may excite mechanical resonance
-
-These observations motivate the upgrade paths above. The baseline form serves a pedagogical / build-validation purpose — to expose chattering and justify boundary-layer / higher-order improvements.
+### Sources (AI-self-audited; openable)
+- A. Levant, "Sliding order and sliding accuracy in sliding mode control," *Int. J. Control*, 58(6):1247–1263, 1993 — STA origin, relative-degree-1 requirement, `O(Tsc²)` accuracy.
+- J. A. Moreno & M. Osorio, "Strict Lyapunov Functions for the Super-Twisting Algorithm," *IEEE Trans. Autom. Control*, 57(4):1035–1040, 2012 — strict quadratic Lyapunov function + sufficient gain conditions.
+- Y. Shtessel, C. Edwards, L. Fridman, A. Levant, *Sliding Mode Control and Observation*, Birkhäuser, 2014 — practical tuning `K1 = 1.5·√L`, `K2 = 1.1·L`.
+- X. Xiong, S. Kamal, S. Jin, "Adaptive Gains to Super-Twisting Technique for Sliding Mode Design," arXiv:1805.07761, 2018 — STA form (eq. 1), perturbation bound (eq. 3), homogeneity-based gain selection (eq. 8).
 
 ---
