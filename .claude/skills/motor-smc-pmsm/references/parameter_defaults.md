@@ -37,7 +37,7 @@ Inner PI saturation: `LimitOutput='on'`, `±Vdc/√3`, `AntiWindup='clamping'`.
 
 | Parameter | Default | Notes |
 |---|---|---|
-| `B` | `0.008` (≈ 26× small-motor hardware spec) | **MUST be > 0**. SMC needs a dissipation port. If hardware `B << 0.001`, add explicit dissipation Gain block |
+| `B` | `0.008` (≈ 26× small-motor hardware spec) | **v1 baseline assumes `B > 0`** (validated envelope; not a theoretical requirement — STA is damping-independent). If `B ≈ 0`, re-validate STA gains rather than adding artificial damping |
 
 ## Voltage Source
 

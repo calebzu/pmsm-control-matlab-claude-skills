@@ -16,7 +16,7 @@ Layered on [motor-pmsm-base](../motor-pmsm-base/SKILL.md). All base discipline a
 1. **Plan first** — Numbered plan with 21 input table, design-decision choices ([design_decisions.md](references/design_decisions.md)), build-script structure. Get user approval.
 2. **One-click reproducibility** — All parameters injected via `set_param(mdl, 'InitFcn', ...)`. Model must Run from `.slx` double-click in fresh MATLAB session. See [crit_conditions.md §E-CRIT](references/crit_conditions.md).
 3. **Default 6-state switching table for PMSM** — `switching_table_mode='6state'` (Sutikno 2011 Table 2). Never default to 8-state Takahashi for PMSM — V0/V7 zero vectors cause flux to decay. See [switching_table.md](references/switching_table.md) and [crit_conditions.md §A-CRIT](references/crit_conditions.md).
-4. **`ψ_ref ≠ ψ_f` by default** — Take `psi_ref` from reference if supplied; else compute MTPA load operating point `|ψ_s|_load = sqrt(ψ_f² + (Lq·iq_max)²)`. Never default `ψ_ref = ψ_f` for IPMSM. See [crit_conditions.md §B-CRIT](references/crit_conditions.md).
+4. **`ψ_ref ≠ ψ_f` by default** — Take `psi_ref` from reference if supplied; else compute the id=0 load-point stator flux `|ψ_s|_load = sqrt(ψ_f² + (Lq·iq_max)²)` (not true MTPA, which needs id<0). Never default `ψ_ref = ψ_f` for IPMSM. See [crit_conditions.md §B-CRIT](references/crit_conditions.md).
 5. **`T_eq_factor = 15` for DTC, NOT 5** — DTC's hysteresis inner loop has lower bandwidth than FCS-MPC's current PI. Compute Speed PI gains via `pi_design('SO', J, 1, T_eq, a_so)` with `T_eq = 15·Tsc`, `a_so = 4`. **Pass `Kt = 1`** because DTC outer PI directly outputs `Te_ref` [N·m] (plant has no Kt). See [crit_conditions.md §C-CRIT](references/crit_conditions.md).
 6. **Chart config = INHERITED + dual ZOH** — `ch.SampleTime='-1'`, `ch.ChartUpdate='INHERITED'`. ZOH @ Tsc on every chart input (5 inputs: `Te_ref, ia, ib, ua, ub`) AND every chart output (9 outputs: `gate, Te_meas, mag_psi, ψ_α, ψ_β, sector, V_k, C_ψ, C_T`). See [crit_conditions.md §D-CRIT](references/crit_conditions.md).
 7. **Speed PI saturation is mandatory** — `Saturation` block after PI with limits `[-T_max, +T_max]`. Anti-windup off for v1 baseline; production should add clamp or back-calc.
@@ -48,7 +48,7 @@ Ask user before starting. Defaults in [parameter_defaults.md](references/paramet
 |---|---|
 | **Machine** (6) | `Pn`, `Rs`, `Ld, Lq`, `psi_f`, `J`, `B` (B=0 forces SO method for Speed PI) |
 | **Power stage** (1) | `Vdc` |
-| **Control** (3) | `psi_ref` (reference value if supplied; else MTPA — never `ψ_f` for IPMSM), `T_max` (reference value if supplied; else `1.5·Pn·ψf·iq_max`), `iq_max` |
+| **Control** (3) | `psi_ref` (reference value if supplied; else id=0 load-point stator flux — never `ψ_f` for IPMSM), `T_max` (reference value if supplied; else `1.5·Pn·ψf·iq_max`), `iq_max` |
 | **Sampling** (3) | `Tsc` (default 50 μs), `step_size` (default 1 μs; `step_size ≤ Tsc/50`), `fs_max` (default 10 kHz) |
 | **PI design** (2) | `T_eq_factor` (default **15** for DTC), `a_so` (default 4 for SO ζ_eq ≈ 0.71) |
 | **Mode** (4) | `switching_table_mode` (default `'6state'`), `torque_hysteresis_levels` (default 2), `Te_feedback_mode` (default `'alphabeta'`), `flux_drift_compensation` (default `'none'`) |
@@ -69,8 +69,8 @@ Ask user before starting. Defaults in [parameter_defaults.md](references/paramet
 | Sub-type | Parameter constraint | Strategy |
 |---|---|---|
 | SPMSM | `Ld == Lq` | `psi_ref ≈ ψ_f` workable (verify load doesn't push `\|ψ_s\|_load` above `ψ_f`) |
-| IPMSM mild saliency | `Lq > Ld`, `Lq/Ld ≤ 1.5` | `psi_ref` from MTPA: `sqrt(ψ_f² + (Lq·iq_max)²)` |
-| IPMSM strong saliency | `Lq/Ld ≥ 2` | Same MTPA formula; `T_max` may need higher headroom |
+| IPMSM mild saliency | `Lq > Ld`, `Lq/Ld ≤ 1.5` | `psi_ref` = id=0 load-point flux: `sqrt(ψ_f² + (Lq·iq_max)²)` |
+| IPMSM strong saliency | `Lq/Ld ≥ 2` | Same id=0 flux formula; `T_max` may need higher headroom |
 
 Topology does not change — same blocks, same wiring, same chart, same CRIT conditions. Only `psi_ref` and `iq_max` budgets differ.
 

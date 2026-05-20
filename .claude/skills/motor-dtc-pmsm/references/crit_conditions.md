@@ -15,10 +15,10 @@ Six non-negotiable conditions. Each is a known silent-failure mode.
 Default `psi_ref` must come from one of (in priority order):
 
 1. **Reference model value** if supplied: copy as-is
-2. **MTPA load operating point**: `|ψ_s|_load = sqrt(ψ_f² + (Lq · iq_max)²)`
+2. **id=0 load-point stator flux**: `|ψ_s|_load = sqrt(ψ_f² + (Lq · iq_max)²)` (stator-flux magnitude at `id=0`; **not** true MTPA, which needs `id<0` to exploit reluctance torque)
 3. **SPMSM light-load only**: `ψ_f` is acceptable as a lower bound, but verify load doesn't push `|ψ_s|_load` above `ψ_f + small margin`
 
-⛔ **Never default `ψ_ref = ψ_f` for IPMSM**. IPMSM has `Lq >> Ld`; MTPA gives `|ψ_s|_load = sqrt(ψ_f² + (Lq·iq)²) >> ψ_f`. If `ψ_ref = ψ_f`, then `E_ψ = ψ_ref − |ψ_s| < 0` always → `C_ψ = 0` always → switching table only selects vectors that decrease flux → motor cannot reach demanded torque, **reverses direction**.
+⛔ **Never default `ψ_ref = ψ_f` for IPMSM**. IPMSM has `Lq >> Ld`; at `id=0` the load stator flux `|ψ_s|_load = sqrt(ψ_f² + (Lq·iq)²) >> ψ_f`. If `ψ_ref = ψ_f`, then `E_ψ = ψ_ref − |ψ_s| < 0` always → `C_ψ = 0` always → switching table only selects vectors that decrease flux → motor cannot reach demanded torque, **reverses direction**.
 
 **Diagnostic**: if wm reverses (negative steady-state) under positive `ω_ref` and positive load, first suspect = `ψ_ref` set below `|ψ_s|_load`. Verify `ψ_ref ≥ sqrt(ψ_f² + (Lq · iq_actual)²)`.
 

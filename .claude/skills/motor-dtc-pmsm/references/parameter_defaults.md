@@ -64,7 +64,7 @@ When `fs_max` is supplied, use the back-calculation formulas in [hb_sizing.md](h
 | Scenario | `psi_ref` |
 |---|---|
 | Reference value supplied | Copy from reference |
-| MTPA load operating point | `sqrt(ψ_f² + (Lq · iq_max)²)` |
+| id=0 load-point stator flux | `sqrt(ψ_f² + (Lq · iq_max)²)` (not true MTPA; id<0 needed for that) |
 | SPMSM light-load only | `ψ_f` (verify `\|ψ_s\|_load` does not exceed `ψ_f`) |
 | ⛔ NEVER for IPMSM | `ψ_f` (motor will reverse — see [crit_conditions.md §B-CRIT](crit_conditions.md)) |
 

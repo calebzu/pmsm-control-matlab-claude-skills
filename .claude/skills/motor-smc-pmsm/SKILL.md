@@ -26,7 +26,7 @@ Most users may lack independent SMC domain expertise. When the user declares thi
 2. **One-click reproducibility** — Inject all parameters via `set_param(mdl, 'InitFcn', ...)`. See [crit_conditions.md §D-CRIT](references/crit_conditions.md).
 3. **PD-type sliding + STA architecture** — `s = e + λ·de/dt` (Filtered Derivative `s/(Tf·s+1)`) + STA reaching law `u = K1·|s|^0.5·sgn(s) + K2·∫sgn(s)`. Do NOT use PI-type sliding (integrator wind-up voids Lyapunov proof) or classic sgn / boundary-layer sat (chattering). See [control_law.md](references/control_law.md).
 4. **iq_ref Saturation is mandatory** — Saturation block at `iq_ref` output BEFORE feeding to current PI, limits `±iq_max`. See [crit_conditions.md §B-CRIT](references/crit_conditions.md).
-5. **Lyapunov STA gains auto-computed; `B > 0` mandatory** — `K1 > 1.5·√M`, `K2 > 1.1·M` where `M = (TL_max + B·ω_max)/J`. Build script asserts both. Plant friction `B > 0` is mandatory (SMC needs a dissipation port). See [control_law.md](references/control_law.md) and [crit_conditions.md §C-CRIT](references/crit_conditions.md).
+5. **Lyapunov STA gains auto-computed; `B > 0` in v1 baseline** — `K1 > 1.5·√M`, `K2 > 1.1·M` where `M = (TL_max + B·ω_max)/J`. Build script asserts both. Plant friction `B > 0` is the v1 baseline assumption (validated envelope; not a theoretical requirement — STA convergence is damping-independent). See [control_law.md](references/control_law.md) and [crit_conditions.md §C-CRIT](references/crit_conditions.md).
 6. **`Goto_The TagVisibility='global'` MANDATORY** — Anti_Park's internal `From "The"` requires the parent's `Goto_The` to publish globally; default `'local'` is silent failure mode (FOC degenerates to lab-frame open-loop). See base/[broken_foc_diagnostics.md](../motor-pmsm-base/references/broken_foc_diagnostics.md) §F-CRIT 1 + [crit_conditions.md §G-CRIT](references/crit_conditions.md).
 7. **FF Mux input is `ω_e` (NOT `θ_e`)** — Cross-decoupling FF formulas need electrical angular velocity, not position. Use a dedicated `Gain_Pn_omega` block independent of `Gain_Pn` (which provides θ_e for `Goto_The`). See [ff_decoupling.md](references/ff_decoupling.md) and [crit_conditions.md §H-CRIT](references/crit_conditions.md).
 8. **Add 4 Scopes for human inspection** — `Scope_wm_RPM` / `Scope_iq` / `Scope_s` / `Scope_Te`. See [crit_conditions.md §F-CRIT](references/crit_conditions.md). Visual 4-check (motor rotates / iq tracks / abc AC sinusoidal NOT DC-locked / Te energy balance) is mandatory pre-condition for trusting any numerical metric.
@@ -56,7 +56,7 @@ Ask user before starting. Defaults in [parameter_defaults.md](references/paramet
 
 | Group | Parameters |
 |---|---|
-| **Machine** (6) | `Pn`, `Rs`, `Ld, Lq` (mild-saliency `Lq/Ld < 2` v1; strong saliency deferred), `psi_f`, `J`, **`B > 0` mandatory** (default 0.008) |
+| **Machine** (6) | `Pn`, `Rs`, `Ld, Lq` (mild-saliency `Lq/Ld < 2` v1; strong saliency deferred), `psi_f`, `J`, **`B > 0`** (v1 baseline, default 0.008) |
 | **Power stage** (1) | `Vdc` (default ≥ 1.5× ω_max·ψ_f / √3 peak phase BEMF) |
 | **Control** (3) | `iq_max`, `T_max` (default `1.5·Pn·ψf·iq_max`), **`TL_max` always asked** (Lyapunov bound input) |
 | **SMC design** (4) | `lambda_pd_settling` (default 10 ms), `Tf_deriv` (default `Tsc`), `K1_sta` (auto), `K2_sta` (auto) |

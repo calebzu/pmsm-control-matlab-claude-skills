@@ -37,7 +37,7 @@ K2_sta > 1.1 · M
 
 Build script computes `M` and asserts both inequalities at construction time.
 
-**Plant friction `B > 0` mandatory**: B=0 kills the `(B/Kt) · ω` damping channel. SMC needs a dissipation port — chattering has no energy sink without it. Default `B = 0.008` (≈ 26× small-motor hardware spec) is acceptable. If hardware `B << 0.001`, add an explicit dissipation Gain block before passing ω to the PMSM, OR reject as out-of-scope (frictionless PMSM SMC needs different architecture).
+**Plant friction `B > 0` (v1 baseline envelope guard, not a theoretical requirement)**: STA finite-time convergence follows from the K1/K2 conditions above, **independent of plant viscous damping** — a `B = 0` pure-integrator speed loop is relative-degree-1 and STA-controllable in principle. The v1 baseline was validated **entirely with `B > 0`**, so the build script asserts `B > 0` to keep within the validated envelope. Default `B = 0.008` (≈ 26× small-motor hardware spec). If your plant has `B ≈ 0`, re-validate the STA gains for that case rather than assuming the controller requires damping.
 
 **`TL_max` is user-supplied** (necessary prior knowledge for matched-disturbance bound). If user does not know, treat as Required Input gap and ask: "What is the maximum expected load torque for this drive?"
 

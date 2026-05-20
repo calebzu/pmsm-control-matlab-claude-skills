@@ -613,7 +613,9 @@ Phase-to-neutral voltages: `V_aN = (2·Sa − Sb − Sc)·V_dc/3` (similarly for
 
 ---
 
-## §B.6 Hysteresis switching table (8-state, classical)
+## §B.6 Hysteresis switching table — 8-state classical (IM-DTC / general reference)
+
+> ⚠️ **PMSM MUST use the 6-state Sutikno table (§B.6b), NOT this 8-state table.** The zero vectors V0/V7 below cause PMSM stator-flux decay in steady state (a PMSM has no induction-motor slip mechanism to rebuild flux during zero-vector intervals). This 8-state classical table is retained only for induction-motor DTC / general reference.
 
 Input: `(C_ψ, C_T, S)`. `C_ψ ∈ {0, 1}` (flux 1=inc, 0=dec), `C_T ∈ {0, 1}` (torque 1=inc, 0=dec/hold), `S ∈ {I..VI}` (§B.4).
 
@@ -642,6 +644,21 @@ Output: `V_k` ∈ {0..7}.
 |---|---|
 | **A16** | C_ψ and C_T are **2-level** (1/0). A 3-level torque hysteresis (`C_T ∈ {-1, 0, 1}`) is an advanced option. Baseline uses 2-level |
 | **A17** | Variable switching frequency (classical DTC limitation). Remedies: DTC-SVM / model-predictive DTC / advanced switching strategies — record under "Known Limitations" |
+
+---
+
+## §B.6b PMSM 6-state Sutikno table (no zero vectors) ⭐ PMSM default
+
+PMSM **must** use this 6-state table (Sutikno 2011), **not** the 8-state classical table (§B.6). Every cell selects an **active** vector `{V1..V6}` — no V0/V7 — because a PMSM has no slip mechanism to rebuild stator flux during zero-vector intervals (`dψ_s/dt = -R_s·i_s` is decay-only when `u = 0`), so V0/V7 cause steady-state flux collapse.
+
+| (C_ψ, C_T) | S=I | S=II | S=III | S=IV | S=V | S=VI | Effect |
+|---|---|---|---|---|---|---|---|
+| (1, 1) | V2 | V3 | V4 | V5 | V6 | V1 | flux↑ + Te↑ (forward) |
+| (1, 0) | V6 | V1 | V2 | V3 | V4 | V5 | flux↑ + Te↓ (backward) |
+| (0, 1) | V3 | V4 | V5 | V6 | V1 | V2 | flux↓ + Te↑ (forward) |
+| (0, 0) | V5 | V6 | V1 | V2 | V3 | V4 | flux↓ + Te↓ (backward) |
+
+**Diagnostic**: healthy 6-state operation traces a **circular** αβ flux trajectory of radius `ψ_ref`. A **hexagonal** pattern with an inner pull toward the origin is the classic 8-state-leak signature (V0/V7 collapsing flux).
 
 ---
 
@@ -749,7 +766,7 @@ Relative degree 0 (proper) → the map `iq → s` keeps the plant's relative deg
 **NO integrator in the surface** → no surface wind-up. STA already supplies the integral (equivalent-control) action through its own `∫sgn(s)` channel (§C.4); a surface integral (PI-type ISMC) is redundant and breaks the STA strict-Lyapunov structure — see §C.7.
 
 ### Suspended assumption
-- **A_smc2**: Speed system as first-order plant `J·dω_m/dt = Te − B·ω_m − TL` (from A_smc1 with ideal-fast inner loop). Consistent with §A.1 plant model. `B > 0` mandatory (SMC dissipation port; §C.5) — does **not** degenerate to a pure integrator.
+- **A_smc2**: Speed system as first-order plant `J·dω_m/dt = Te − B·ω_m − TL` (from A_smc1 with ideal-fast inner loop). Consistent with §A.1 plant model. `B > 0` is the **v1 baseline assumption** (§C.5) — an engineering baseline, not a theoretical requirement; with `B = 0` the plant is a pure integrator that STA still controls in principle (relative degree 1).
 
 ---
 
@@ -847,8 +864,8 @@ K2_sta = max(8000, 1.1·M  · 1.3)
 ### Honesty note on the bound
 The textbook rule's `L` bounds the perturbation **derivative** `|ḋ| ≤ L`; here `M` is a **magnitude** bound used as a practical / conservative proxy (load torque slowly-varying ⇒ `ḋ` scale ~ `M`; the 1.5 / 1.3 margins add buffer). The bound is a **necessary** condition for finite-time reaching, **not** a guarantee of TL-step trough depth — on high-`M` plants pump `K1` to 3–5× and `K2` to 3× the floor (see acceptance criteria / skill `control_law.md`).
 
-### `B > 0` mandatory
-`B = 0` removes the `(B/J)·ω` damping channel; SMC needs a dissipation port (chattering energy sink). Default `B = 0.008`.
+### `B > 0` — v1 baseline assumption (not a theoretical requirement)
+`B > 0` (default `B = 0.008`) is an **engineering baseline assumption, not a theoretical requirement**. STA finite-time convergence follows from the gain conditions above, **independent of plant viscous damping**; a `B = 0` pure-integrator speed loop (`J·ω̇ = Te − TL`) is relative-degree-1 and STA-controllable in principle. The v1 baseline was developed and validated **entirely with `B > 0`**, so `B = 0` sits **outside the validated envelope** — if your plant has `B ≈ 0`, re-validate the STA gains rather than assuming the controller requires damping.
 
 ### Key properties
 - **K1** = `|s|^0.5` reaching gain (rad/s²·√s); **K2** = integral robustness gain (rad/s³). Both must dominate `M`.

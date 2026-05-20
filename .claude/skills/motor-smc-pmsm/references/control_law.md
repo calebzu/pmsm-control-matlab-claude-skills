@@ -91,13 +91,13 @@ K2_sta = max(8000, 1.1 · M · 1.3)
 
 The margin (1.5 / 1.3) is empirical buffer above the Lyapunov-required lower bound.
 
-## Plant Friction `B > 0` Mandatory
+## Plant Friction `B > 0` — v1 Baseline Assumption (not a theoretical requirement)
 
-`B = 0` kills the `(B/Kt) · ω` damping channel. SMC needs a dissipation port — chattering has no energy sink without it.
+`B > 0` is the **v1 baseline assumption, not a theoretical requirement** of SMC/STA. STA finite-time convergence follows from the K1/K2 gain conditions above, **independent of plant viscous damping**; a `B = 0` pure-integrator speed loop (`J·ω̇ = Te − TL`) is relative-degree-1 and STA-controllable in principle.
 
-- Default `B = 0.008` (≈ 26× small-motor hardware spec) is acceptable for v1 baseline
-- If hardware `B << 0.001`: add an explicit dissipation Gain block before passing ω to PMSM
-- If frictionless PMSM is mandatory: out of v1 scope (different SMC architecture needed)
+- Default `B = 0.008` (≈ 26× small-motor hardware spec) for the v1 baseline
+- The v1 baseline was developed and validated **entirely with `B > 0`**, so `B = 0` is **outside the validated envelope**
+- If your plant has `B ≈ 0`: re-validate the STA gains (`K1, K2`) for that case rather than assuming the controller requires damping
 
 ## TL Trough on High-M Plants
 
