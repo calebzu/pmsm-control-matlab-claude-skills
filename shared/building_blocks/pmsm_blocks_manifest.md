@@ -7,6 +7,14 @@ topology: ⚠️ all blocks are **unwired**; layout is arbitrary and carries no 
 
 # Building Blocks Manifest — `pmsm_blocks.slx`
 
+> **License & trademark notice**: `pmsm_blocks.slx` is a **user-authored** Simulink model
+> that references MathWorks Simscape Electrical library blocks (PMSM, Universal Bridge,
+> powergui, SVPWM, etc.) **by reference**. It does not embed or redistribute MathWorks
+> block implementations — **opening it requires your own licensed MATLAB + Simulink +
+> Simscape Electrical installation** (the same way models are shared on MathWorks File
+> Exchange). MATLAB® and Simulink® are registered trademarks of The MathWorks, Inc.;
+> this is an independent project not affiliated with, endorsed by, or sponsored by MathWorks.
+
 ## Usage
 
 ```matlab

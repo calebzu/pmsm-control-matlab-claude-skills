@@ -1,4 +1,4 @@
-# PMSM Claude Skills
+# PMSM Control Claude Skills (for MATLAB / Simulink)
 
 A methodology and skill library for AI-augmented MATLAB/Simulink modeling of
 **Permanent Magnet Synchronous Motor (PMSM)** control, built for use with
@@ -47,9 +47,20 @@ reference models. Clone them separately if needed:
 - [mathworks/pmsm-drive-optimization](https://github.com/mathworks/pmsm-drive-optimization) — BSD-3-Clause
 - [mathworks/FOC-of-PMSM](https://github.com/mathworks/FOC-of-PMSM) — BSD-3-Clause
 
-No MathWorks-derived code, model files, or copyrighted material is redistributed
-here. BSD-3-Clause is compatible with Apache-2.0 for downstream use; this
-repository's original content is under [Apache-2.0](LICENSE).
+This repository's original content (skills, workflow, scripts) is under
+[Apache-2.0](LICENSE). BSD-3-Clause (the indexed references above) is compatible
+with Apache-2.0 for downstream use.
+
+`shared/building_blocks/pmsm_blocks.slx` is a **user-authored** Simulink model that
+references MathWorks Simscape Electrical library blocks (PMSM, Universal Bridge,
+powergui, SVPWM, etc.) **by reference** — it does not embed or redistribute MathWorks
+block implementations. Opening it requires your own licensed MATLAB + Simulink +
+Simscape Electrical installation, the same way models are shared on MathWorks File
+Exchange.
+
+**Trademark notice**: MATLAB® and Simulink® are registered trademarks of The
+MathWorks, Inc. This is an independent project, **not affiliated with, endorsed by,
+or sponsored by MathWorks**.
 
 The "skill" format follows the [Claude Code skill specification](https://docs.claude.com/claude-code).
 
