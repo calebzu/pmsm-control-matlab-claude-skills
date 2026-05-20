@@ -69,9 +69,10 @@ Inner PI saturation: `LimitOutput='on'`, `±Vdc/√3`, `AntiWindup='clamping'`.
 | `TL_step_t` | `0.6 s` | Must be > `ramp_time + 4·λ_pd` (sliding-phase settled before disturbance) |
 | `TL_after` | 30–80% of rated torque | Must satisfy `\|TL_after\| ≤ TL_max` |
 
-## Reference Default Plant (Validation Case)
+## Generic Typical Plant (textbook 1 kW SPMSM)
 
-For sanity-checking the build template, a typical SPMSM 1 kW set:
+A generic textbook 1 kW SPMSM parameter set for sanity-checking the build template.
+**Not from any reference model** — these are typical servo values, safe to publish:
 
 ```
 Pn = 4

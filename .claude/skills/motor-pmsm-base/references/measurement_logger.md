@@ -123,7 +123,7 @@ function run_self_tests(mdl, p)
   % T3: Stateflow chart Script inline (not a 1-line wrapper)
   chart_blocks = find_system(mdl, 'MaskType', 'Stateflow');
   for i = 1:numel(chart_blocks)
-    sf = sfroot.find('-isa', 'Stateflow.EMChart');
+    sf = sfroot().find('-isa', 'Stateflow.EMChart');
     if ~isempty(sf)
       assert(numel(splitlines(sf.Script)) >= 20, 'chart Script too short');
     end

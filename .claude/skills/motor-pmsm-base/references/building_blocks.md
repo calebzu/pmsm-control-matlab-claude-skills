@@ -7,7 +7,7 @@
 - **Park / Clarke / Anti-Park / Anti-Clarke** (amplitude-invariant, matches the conventions in [plant_modeling.md](plant_modeling.md))
 - **Anti_Park** subsystem (dq → αβ inverse Park, internally reads θ_e via Goto/From)
 - **PMSM block** (R2024b SPS wrapper with explicit mask settings — `RefAngle` pre-set to original Park to match `shared/formulas/pmsm_formulas.md §1`; the `sps_lib` bare default is modified Park, 90° offset — see RefAngle CRIT below and F-CRIT 6)
-- **SVPWM** (`Discrete SV PWM Generator` block from `powerlib_extras/Discrete Control Blocks/`)
+- **SVPWM** (project-built SubSystem inside `pmsm_blocks.slx`, block name `SVPWM` — 5 sub-subsystems: Sector_Caculate / T1T1_Caculate / Tcm_Caculate / XYZ_Caculate / PWM)
 - Common utilities: Mux 3, Demux, Constant, Gain, Sum, Integrator (with init)
 
 ## Reuse Discipline
@@ -70,17 +70,20 @@ end
 
 DTC αβ-frame methods are exempt (no Park transform).
 
-## SVPWM Library Block
+## SVPWM Block
 
-- Source: `powerlib_extras/Discrete Control Blocks/Discrete SV PWM Generator` (NOT inside the project's `pmsm_blocks.slx`).
-- Configure: αβ-mode, Pattern #1, mask params for switching frequency `Fc` and sample time `Ts`.
-- Output: 6-element binary pulse vector `[Sa_up, Sa_dn, Sb_up, Sb_dn, Sc_up, Sc_dn]` directly connected to `Universal_Bridge` inport.
-- **Sector=7 startup fix**: at the first one or two samples after startup, sector calculation may produce sector=7 (invalid), causing the motor not to move briefly. Fix:
+- Source: **project-built SubSystem inside `pmsm_blocks.slx`** (block name `SVPWM`) — 5 sub-subsystems: Sector_Caculate / T1T1_Caculate / Tcm_Caculate / XYZ_Caculate / PWM + Repeating Sequence triangle carrier + 2 Constants. Copy via `add_block` from the library; do not rebuild from memory.
+- Output: 6-bit pair-adjacent pulse `[Sa_up, Sa_dn, Sb_up, Sb_dn, Sc_up, Sc_dn]` direct-fit to `Universal_Bridge` inport 1. Internal Constants reference `Tpwm` + `Vdc_val` workspace vars (set in InitFcn).
+- **Sector=7 startup fix**: at t=0 transient `Vα=Vβ=0` makes `Sector_Caculate` output sector=7 (`sign(X)=sign(Y)=sign(Z)=+1` → `4+2+1=7`, out of valid 1..6), and the internal MultiPort Switch blocks (`DiagnosticForDefault='Error'`) throw. Fix on the **local instance** (break library link, set MultiPortSwitch default to None):
 
 ```matlab
-set_param([mdl '/SVPWM/sector'], 'StartSector', '1');
-% Or in chart logic: if sector==7, sector = 1; end
+set_param([mdl '/SVPWM_blk'], 'LinkStatus', 'inactive');
+ms_blks = find_system([mdl '/SVPWM_blk'], 'LookUnderMasks', 'all', ...
+    'FollowLinks', 'on', 'BlockType', 'MultiPortSwitch');
+for k = 1:numel(ms_blks); set_param(ms_blks{k}, 'DiagnosticForDefault', 'None'); end
 ```
+
+> The older `StartSector` parameter applies **only** to the MathWorks official *Discrete SV PWM Generator* block, which this project does **not** use — the project SVPWM is a hand-built SubSystem with no `StartSector` parameter.
 
 ## Cross-Decoupling Feedforward (FF) — Dimensional Correctness
 

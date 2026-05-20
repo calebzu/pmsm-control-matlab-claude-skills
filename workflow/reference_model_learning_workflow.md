@@ -6,7 +6,7 @@
 >
 > **Purpose**: When you have a reference model — your own baseline, a peer's published implementation, or an open-source repository — and want to (a) learn the methodology behind it and (b) distill that knowledge into a reusable Claude Code skill, this workflow tells you how. **Its central novelty is a verification protocol that prevents the rebuild subagent from silently reproducing the reference's structure instead of independently deriving it** — see Appendix F.
 >
-> **Validation**: Validated on three independent control families (one-step finite-control-set MPC, hysteresis-table direct torque control, super-twisting sliding mode) targeting surface-mounted and interior-permanent-magnet synchronous machines. Anonymized case studies in Appendix C.
+> **Validation**: Applied to three independent control families (one-step finite-control-set MPC, hysteresis-table direct torque control, super-twisting sliding mode) targeting surface-mounted and interior-permanent-magnet synchronous machines. Appendix C gives anonymized **narrative** case studies (problem / diagnosis / resolution). Raw simulation artifacts (build scripts, `.slx`, waveforms, logs) live in the author's private development repository and are **not** included in this public release — see "Reproducibility & Evidence" in the [README](README.md).
 
 ---
 
@@ -177,7 +177,7 @@ The IP class determines which artifacts may live in the skill (methodology only)
 
 **Anti-pattern**: A user signing formulas in a domain they don't understand creates a false sense of security — the user has no capacity to catch AI hallucinations in formulas, DOIs, or citations. The reviewer-pattern fails silently.
 
-**Validated case**: In one Phase 1.5 application, the user declared no prior background in the target method. The workflow switched to AI-self-audit mode: each of the six method-specific formulas was anchored by ≥ 2 independent academic sources (one peer-reviewed paper + one textbook); all DOIs resolvable; all PDFs cached locally to defend against fabricated references. Phase 8 user visual review served as the fail-safe and confirmed the resulting skill produced correct tracking behavior, demonstrating that AI-self-audit mode preserves the publication-grade strictness of the verification gate. See Appendix C, Case 3.
+**Validated case**: In one Phase 1.5 application, the user declared no prior background in the target method. The workflow switched to AI-self-audit mode: each of the six method-specific formulas was anchored by ≥ 2 independent academic sources (one peer-reviewed paper + one textbook); all DOIs resolvable; all PDFs cached locally to defend against fabricated references. Phase 8 user visual review served as the fail-safe and confirmed the resulting skill produced correct tracking behavior, demonstrating that AI-self-audit mode preserves the strictness of the verification gate. See Appendix C, Case 3.
 
 **Relation to Phase 4.5**:
 
@@ -844,7 +844,7 @@ After the build phase is finished and a post-build review is needed (inspecting 
 
 #### Generalization Roadmap ⭐
 
-The methodology's publication-grade defensibility depends on `N` — the number of independent validated cases.
+The methodology's defensibility scales with `N` — the number of independent applied cases.
 
 | Status | Validates |
 |---|---|
@@ -993,7 +993,7 @@ A skill that survived four or more FAIL-revise cycles has three audiences with d
 
 ## Appendix C — Validated Case Studies
 
-The methodology was validated against three independent control families (FCS-MPC, DTC, SMC) on surface-mounted and interior-permanent-magnet synchronous machines. The cases below summarize the validation evidence — domain, problem encountered, diagnosis, resolution, and the methodology insight surfaced. Where the cases are referenced from the main workflow text (Phase 4.5, Phase 5 round-chain bypass, Phase 6 / 8 Visual 4-Check, Phase 8 4-gate, Phase 9 promote gate), the corresponding rule was either introduced or sharpened by the case.
+The methodology was applied to three independent control families (FCS-MPC, DTC, SMC) on surface-mounted and interior-permanent-magnet synchronous machines. The cases below are **anonymized narrative** summaries — domain, problem encountered, diagnosis, resolution, and the methodology insight surfaced. They are **not** accompanied by raw artifacts (`.slx`, waveforms, logs) in this public release; read them as documented engineering experience, not as independently reproducible benchmarks. Where the cases are referenced from the main workflow text (Phase 4.5, Phase 5 round-chain bypass, Phase 6 / 8 Visual 4-Check, Phase 8 4-gate, Phase 9 promote gate), the corresponding rule was either introduced or sharpened by the case.
 
 ### Case 1 — Pole-Zero-Cancellation PI Silent Failure (`N = 1` validation)
 

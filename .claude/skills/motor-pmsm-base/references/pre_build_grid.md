@@ -8,7 +8,7 @@ Run **before** any PMSM control simulation build. Each failure means stop, fix, 
 □ Goto/From `TagVisibility` set to 'global' for any cross-subsystem signal (e.g., Goto_The for Anti_Park's θ_e)
 □ FF (cross-decoupling feedforward) dimensional check: Mux input is ω_e (rad/s, NOT θ_e in rad)
 □ Vdc / BEMF headroom ≥ 1.5×  (formula: Vdc_min = 1.5 · √3 · ω_e_max · ψ_f)
-□ SVPWM startup sector handling (sector=7 must default to sector=1 to avoid 0-output instant)
+□ SVPWM sector=7 startup handled (break SVPWM_blk library link + internal MultiPortSwitch DiagnosticForDefault='None'; see building_blocks.md)
 □ Feedback signals use PMSM internal dq (`BusSel/7 (iqs)`, `BusSel/8 (ids)`), NOT external Park transform output
 □ Solver: ode23tb (stiff for power electronics) + ZeroCrossControl='DisableAll' (required for SMC sgn / DTC hysteresis)
 □ All `add_block` calls pass explicit `Position` (do not rely on `arrangeSystem` defaults)

@@ -34,14 +34,18 @@ set_param([mdl '/Goto_The'], 'TagVisibility', 'global');
 
 **Symptom**: Motor doesn't move for first one or two samples after startup, then starts.
 
-**Root cause**: SVPWM sector calculation isn't stable at t=0; can produce sector=7 (invalid).
+**Root cause**: The project-built SVPWM SubSystem's `Sector_Caculate` produces sector=7 at t=0 (`Vα=Vβ=0` → all three signs +1 → `4+2+1=7`, out of valid 1..6), and the internal MultiPort Switch blocks (`DiagnosticForDefault='Error'`) throw.
 
-**Fix**:
+**Fix** (break library link on local instance + set MultiPortSwitch default to None):
 
 ```matlab
-set_param([mdl '/SVPWM/sector'], 'StartSector', '1');
-% Or in chart logic: if sector==7, sector = 1; end
+set_param([mdl '/SVPWM_blk'], 'LinkStatus', 'inactive');
+ms_blks = find_system([mdl '/SVPWM_blk'], 'LookUnderMasks', 'all', ...
+    'FollowLinks', 'on', 'BlockType', 'MultiPortSwitch');
+for k = 1:numel(ms_blks); set_param(ms_blks{k}, 'DiagnosticForDefault', 'None'); end
 ```
+
+> `StartSector` applies only to the MathWorks official Discrete SV PWM Generator block — not used here. See [building_blocks.md](building_blocks.md) SVPWM section.
 
 ## F-CRIT 5 — External Park vs PMSM Internal dq Frame Divergence
 

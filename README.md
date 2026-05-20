@@ -38,6 +38,23 @@ prerequisites, open Claude Code in the folder, and follow [`CLAUDE.md`](CLAUDE.m
 3. Open Claude Code in the repository folder. It loads [`CLAUDE.md`](CLAUDE.md) and registers `.claude/skills/`.
 4. Follow [`CLAUDE.md`](CLAUDE.md) and `workflow/`.
 
+## Reproducibility & Evidence
+
+This repository ships **skills (instructions)** and **shared assets** (`formulas/`,
+`building_blocks/`). It does **not** include end-to-end build scripts that generate
+complete models, simulation results (`.mat`, waveforms, logs), or a CI harness —
+those live in the author's private development repository. The only runnable
+artifacts here are the `pi_design.m` scripts under `.claude/skills/*/scripts/`.
+
+The case studies in [`workflow/`](workflow/reference_model_learning_workflow.md)
+(Appendix C) are **anonymized narrative** descriptions of engineering experience
+(problem / diagnosis / resolution), not artifact-backed reproducible benchmarks.
+Phrases like "validated case" refer to the author's private testing — treat them as
+documented experience, not published, data-backed benchmarks.
+
+To reproduce: install the prerequisites, then drive the skills with your own build
+script and your own PMSM parameters.
+
 ## Attribution and license compatibility
 
 This repository **indexes** — it does not redistribute — the following MathWorks
